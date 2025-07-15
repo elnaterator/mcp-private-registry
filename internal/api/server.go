@@ -12,6 +12,22 @@ import (
 	"github.com/modelcontextprotocol/registry/internal/service"
 )
 
+// CORS middleware for development
+func withCORS(origin string) func(http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			if r.Method == "OPTIONS" {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			h.ServeHTTP(w, r)
+		})
+	}
+}
+
 // Server represents the HTTP server
 type Server struct {
 	config      *config.Config
@@ -26,6 +42,8 @@ func NewServer(cfg *config.Config, registryService service.RegistryService, auth
 	// Create router with all API versions registered
 	mux := router.New(cfg, registryService, authService)
 
+	corsMiddleware := withCORS(cfg.CORSAllowedOrigin)
+
 	server := &Server{
 		config:      cfg,
 		registry:    registryService,
@@ -33,7 +51,7 @@ func NewServer(cfg *config.Config, registryService service.RegistryService, auth
 		router:      mux,
 		server: &http.Server{
 			Addr:              cfg.ServerAddress,
-			Handler:           mux,
+			Handler:           corsMiddleware(mux),
 			ReadHeaderTimeout: 10 * time.Second,
 		},
 	}

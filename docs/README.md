@@ -21,3 +21,16 @@
 [`server.json` README](./server-json/README.md) - description of the `server.json` purpose and schema
 
 [`new_package_registry.md`](./new_package_registry.md) - steps to add a new package registry for local server packages
+
+## CORS Configuration
+
+The allowed origin for CORS can be configured using the `MCP_REGISTRY_CORS_ALLOWED_ORIGIN` environment variable. This controls which frontend origins are permitted to access the API from the browser.
+
+- **Default:** `http://localhost:5173`
+- **Usage:**
+  ```sh
+  export MCP_REGISTRY_CORS_ALLOWED_ORIGIN="http://your-frontend-domain.com"
+  ```
+  Then start the server as usual.
+
+This is useful for local development (with Vite or other dev servers) and for production deployments where the frontend and backend may be on different domains.
