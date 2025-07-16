@@ -18,6 +18,7 @@
     "@tailwindcss/vite": "^4.1.11",
     "autoprefixer": "^10.4.21",
     "htmx.org": "^2.0.6",
+    "marked": "^16.0.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.11"
   }

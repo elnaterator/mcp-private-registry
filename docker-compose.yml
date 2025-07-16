@@ -1,5 +1,7 @@
 services:
   registry:
+    build:
+      context: .
     image: registry
     container_name: registry
     links:
@@ -11,6 +13,7 @@ services:
       - MCP_REGISTRY_ENVIRONMENT=${MCP_REGISTRY_ENVIRONMENT:-test}
       - MCP_REGISTRY_GITHUB_CLIENT_ID=${MCP_REGISTRY_GITHUB_CLIENT_ID}
       - MCP_REGISTRY_GITHUB_CLIENT_SECRET=${MCP_REGISTRY_GITHUB_CLIENT_SECRET}
+      - MCP_REGISTRY_CORS_ALLOWED_ORIGIN=http://localhost:3000
     ports:
       - 8080:8080
     restart: "unless-stopped"
@@ -25,3 +28,12 @@ services:
     ports:
       - 27017:27017
     restart: "unless-stopped"
+  ui:
+    build:
+      context: ./ui
+      args:
+        VITE_API_BASE_URL: http://localhost:8080/v0
+    container_name: ui
+    ports:
+      - 3000:80
+    restart: unless-stopped

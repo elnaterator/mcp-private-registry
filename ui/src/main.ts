@@ -1,11 +1,9 @@
 import './index.css';
-import { renderServerList, setupServerList, searchServers, resetServers } from './components/ServerList';
+import { renderServerList, searchServers, resetServers, fetchServers } from './components/ServerList';
 import { SearchBar } from './components/SearchBar';
-import { ServerDetails } from './components/ServerDetails';
 import { PublishForm } from './components/PublishForm';
 import { API_BASE_URL } from './config';
 import { marked } from 'marked';
-import { fetchServers } from './components/ServerList';
 (window as any).fetchServers = fetchServers;
 
 const app = document.querySelector<HTMLDivElement>('#app');
@@ -36,7 +34,7 @@ function renderPublish() {
   `;
 }
 
-function renderServerDetailsPage(id: string) {
+function renderServerDetailsPage() {
   return `<section id='server-details-page' class='p-4'>Loading server details...</section>`;
 }
 
@@ -47,8 +45,7 @@ function renderPage() {
   if (hash === '#/publish') {
     mainContent = renderPublish();
   } else if (hash.startsWith('#/server/')) {
-    const id = hash.replace('#/server/', '');
-    mainContent = renderServerDetailsPage(id);
+    mainContent = renderServerDetailsPage();
   } else {
     mainContent = renderHome();
   }
