@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/modelcontextprotocol/registry/internal/config"
 	"github.com/modelcontextprotocol/registry/internal/model"
@@ -42,8 +43,13 @@ func (s *ServiceImpl) CheckAuthStatus(_ context.Context, _ string) (string, erro
 
 // ValidateAuth validates authentication credentials
 func (s *ServiceImpl) ValidateAuth(ctx context.Context, auth model.Authentication) (bool, error) {
-	// If authentication is required but not provided
-	if auth.Method == "" || auth.Method == model.AuthMethodNone {
+	// Allow AuthMethodNone for non-io.github server names
+	if auth.Method == model.AuthMethodNone {
+		// If the repo ref (server name) does NOT start with io.github, allow
+		if !strings.HasPrefix(auth.RepoRef, "io.github") {
+			return true, nil
+		}
+		// Otherwise, require auth as before
 		return false, ErrAuthRequired
 	}
 

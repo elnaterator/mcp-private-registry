@@ -98,7 +98,7 @@ func publishCommand() {
 	publishFlags.StringVar(&registryURL, "registry-url", "", "URL of the registry (required)")
 	publishFlags.StringVar(&mcpFilePath, "mcp-file", "", "path to the MCP file (required)")
 	publishFlags.BoolVar(&forceLogin, "login", false, "force a new login even if a token exists")
-	publishFlags.StringVar(&authMethod, "auth-method", "github-oauth", "authentication method to use (default: github-oauth)")
+	publishFlags.StringVar(&authMethod, "auth-method", "", "authentication method to use (default: github-oauth for io.github, none otherwise)")
 
 	// Set custom usage function
 	publishFlags.Usage = func() {
@@ -129,11 +129,32 @@ func publishCommand() {
 		return
 	}
 
+	// Auto-detect auth method if not specified
+	var serverName string
+	{
+		var mcpObj map[string]interface{}
+		if err := json.Unmarshal(mcpData, &mcpObj); err == nil {
+			if n, ok := mcpObj["name"].(string); ok {
+				serverName = n
+			}
+		}
+	}
+	if authMethod == "" {
+		if strings.HasPrefix(serverName, "io.github") {
+			authMethod = "github-oauth"
+		} else {
+			authMethod = "none"
+		}
+	}
+
 	var authProvider auth.Provider // Determine the authentication method
 	switch authMethod {
 	case "github-oauth":
 		log.Println("Using GitHub OAuth for authentication")
 		authProvider = github.NewOAuthProvider(forceLogin, registryURL)
+	case "none":
+		log.Println("Using no authentication (AuthMethodNone)")
+		authProvider = auth.NewNoneProvider()
 	default:
 		log.Printf("Unsupported authentication method: %s\n", authMethod)
 		return

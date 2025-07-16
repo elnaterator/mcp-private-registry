@@ -5,6 +5,8 @@ import { ServerDetails } from './components/ServerDetails';
 import { PublishForm } from './components/PublishForm';
 import { API_BASE_URL } from './config';
 import { marked } from 'marked';
+import { fetchServers } from './components/ServerList';
+(window as any).fetchServers = fetchServers;
 
 const app = document.querySelector<HTMLDivElement>('#app');
 
@@ -15,9 +17,6 @@ function renderHome() {
     </section>
     <section>
       <div id='server-list' class='p-4'></div>
-    </section>
-    <section>
-      ${ServerDetails()}
     </section>
   `;
 }
@@ -246,3 +245,23 @@ function getRegistryIcon(registry: string) {
 
 window.addEventListener('hashchange', renderPage);
 renderPage();
+
+// Move infinite scroll event listener to global scope so it works after navigation
+let infiniteScrollAttached = false;
+function attachInfiniteScroll() {
+  if (infiniteScrollAttached) return;
+  window.addEventListener('scroll', () => {
+    // Only trigger on home page
+    if (window.location.hash && window.location.hash !== '#/' && window.location.hash !== '') return;
+    // Try to fetch more servers if near bottom
+    const scrollY = window.scrollY || window.pageYOffset;
+    const viewportHeight = window.innerHeight;
+    const fullHeight = document.body.offsetHeight;
+    if (scrollY + viewportHeight >= fullHeight - 200) {
+      // @ts-ignore
+      if (typeof window.fetchServers === 'function') window.fetchServers(false);
+    }
+  });
+  infiniteScrollAttached = true;
+}
+attachInfiniteScroll();

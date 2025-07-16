@@ -19,53 +19,97 @@ function splitServerName(fullName: string): { namespace: string; serverName: str
   };
 }
 
-export function renderServerList() {
-  const container = document.getElementById('server-list');
-  if (!container) return;
-  container.innerHTML = `<div>Loading servers...</div>`;
+// Infinite scroll state
+let servers: McpServer[] = [];
+let nextCursor: string | undefined = undefined;
+let isLoading = false;
+let allLoaded = false;
 
-  fetch(`${API_BASE_URL}/servers`)
+function renderServersToContainer(container: HTMLElement) {
+  if (servers.length === 0) {
+    container.innerHTML = '<div>No servers found.</div>';
+    return;
+  }
+  container.innerHTML = `
+    <div class="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+      ${servers.map((server, i) => {
+        const { namespace, serverName } = splitServerName(server.name);
+        return `
+        <div class="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all cursor-pointer p-6 flex flex-col gap-3 border border-gray-100 hover:scale-[1.025] group" data-server-index="${i}" data-server-id="${server.id}">
+          <div class="mb-1">
+            <span class="font-extrabold text-lg text-gray-900 group-hover:text-blue-700 transition block">${serverName}</span>
+            <span class="text-xs text-gray-400 block -mt-1 mb-1">${namespace}</span>
+            <span class="ml-auto bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-semibold float-right">v${server.version_detail.version}</span>
+          </div>
+          <div class="text-gray-600 text-sm line-clamp-3 min-h-[48px]">${server.description}</div>
+          <div class="flex items-center gap-2 mt-2">
+            <span class="inline-flex items-center bg-gray-100 text-gray-700 text-xs px-2 py-0.5 rounded-full font-medium">
+              ${getRepoIcon(server.repository.source)}
+              ${server.repository.source}
+            </span>
+            <a href="${server.repository.url}" target="_blank" class="ml-2 text-blue-500 underline text-xs hover:text-blue-700">Repo</a>
+          </div>
+        </div>
+      `;}).join('')}
+    </div>
+    <div id="server-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black bg-opacity-50 transition-all">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 relative animate-fade-in">
+        <button id="close-modal" class="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-2xl text-gray-500 hover:text-gray-700 transition">&times;</button>
+        <div id="modal-content"></div>
+      </div>
+    </div>
+    <div id="server-list-loading" class="text-center py-4 text-gray-500 ${isLoading ? '' : 'hidden'}">Loading more servers...</div>
+    <div id="server-list-end" class="text-center py-4 text-gray-400 ${allLoaded ? '' : 'hidden'}">No more servers.</div>
+  `;
+}
+
+export function fetchServers(initial = false) {
+  if (isLoading || allLoaded) return;
+  isLoading = true;
+  const container = document.getElementById('server-list');
+  if (container) {
+    if (initial) {
+      container.innerHTML = `<div>Loading servers...</div>`;
+    } else {
+      const loadingDiv = document.getElementById('server-list-loading');
+      if (loadingDiv) loadingDiv.classList.remove('hidden');
+    }
+  }
+  let url = `${API_BASE_URL}/servers`;
+  if (nextCursor) {
+    url += `?cursor=${encodeURIComponent(nextCursor)}`;
+  }
+  fetch(url)
     .then(async (res) => {
       if (!res.ok) throw new Error('Failed to fetch servers');
       const data = await res.json();
-      const servers: McpServer[] = data.servers || [];
-      if (servers.length === 0) {
-        container.innerHTML = '<div>No servers found.</div>';
-        return;
+      const newServers: McpServer[] = data.servers || [];
+      if (initial) {
+        servers = newServers;
+      } else {
+        servers = servers.concat(newServers);
       }
-      container.innerHTML = `
-        <div class="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          ${servers.map((server, i) => {
-            const { namespace, serverName } = splitServerName(server.name);
-            return `
-            <div class="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all cursor-pointer p-6 flex flex-col gap-3 border border-gray-100 hover:scale-[1.025] group" data-server-index="${i}" data-server-id="${server.id}">
-              <div class="mb-1">
-                <span class="font-extrabold text-lg text-gray-900 group-hover:text-blue-700 transition block">${serverName}</span>
-                <span class="text-xs text-gray-400 block -mt-1 mb-1">${namespace}</span>
-                <span class="ml-auto bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-semibold float-right">v${server.version_detail.version}</span>
-              </div>
-              <div class="text-gray-600 text-sm line-clamp-3 min-h-[48px]">${server.description}</div>
-              <div class="flex items-center gap-2 mt-2">
-                <span class="inline-flex items-center bg-gray-100 text-gray-700 text-xs px-2 py-0.5 rounded-full font-medium">
-                  ${getRepoIcon(server.repository.source)}
-                  ${server.repository.source}
-                </span>
-                <a href="${server.repository.url}" target="_blank" class="ml-2 text-blue-500 underline text-xs hover:text-blue-700">Repo</a>
-              </div>
-            </div>
-          `;}).join('')}
-        </div>
-        <div id="server-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black bg-opacity-50 transition-all">
-          <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 relative animate-fade-in">
-            <button id="close-modal" class="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-2xl text-gray-500 hover:text-gray-700 transition">&times;</button>
-            <div id="modal-content"></div>
-          </div>
-        </div>
-      `;
+      nextCursor = data.metadata && data.metadata.next_cursor ? data.metadata.next_cursor : undefined;
+      allLoaded = !nextCursor || newServers.length === 0;
+      renderServersToContainer(container!);
+      if (allLoaded) {
+        const loadingDiv = document.getElementById('server-list-loading');
+        if (loadingDiv) loadingDiv.classList.add('hidden');
+      }
+      isLoading = false;
     })
     .catch((err) => {
-      container.innerHTML = `<div class='text-red-600'>Error: ${err.message}</div>`;
+      if (container) container.innerHTML = `<div class='text-red-600'>Error: ${err.message}</div>`;
+      isLoading = false;
     });
+}
+
+export function renderServerList() {
+  servers = [];
+  nextCursor = undefined;
+  isLoading = false;
+  allLoaded = false;
+  fetchServers(true);
 }
 
 export function setupServerList() {
@@ -77,7 +121,7 @@ export function setupServerList() {
     const index = card.getAttribute('data-server-index');
     if (index === null) return;
     // Find the server data from the rendered cards
-    const servers = Array.from(container.querySelectorAll('[data-server-index]')).map(card => {
+    const serversArr = Array.from(container.querySelectorAll('[data-server-index]')).map(card => {
       const name = card.querySelector('.font-extrabold')?.textContent || '';
       const namespace = card.querySelector('.text-xs.text-gray-400')?.textContent || '';
       return {
@@ -89,7 +133,7 @@ export function setupServerList() {
         source: card.querySelector('.inline-flex')?.textContent?.trim() || '',
       };
     });
-    const server = servers[parseInt(index, 10)];
+    const server = serversArr[parseInt(index, 10)];
     const modal = document.getElementById('server-modal');
     const modalContent = document.getElementById('modal-content');
     if (modal && modalContent) {
