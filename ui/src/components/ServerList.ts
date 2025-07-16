@@ -38,7 +38,7 @@ export function renderServerList() {
           ${servers.map((server, i) => {
             const { namespace, serverName } = splitServerName(server.name);
             return `
-            <div class="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all cursor-pointer p-6 flex flex-col gap-3 border border-gray-100 hover:scale-[1.025] group" data-server-index="${i}">
+            <div class="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all cursor-pointer p-6 flex flex-col gap-3 border border-gray-100 hover:scale-[1.025] group" data-server-index="${i}" data-server-id="${server.id}">
               <div class="mb-1">
                 <span class="font-extrabold text-lg text-gray-900 group-hover:text-blue-700 transition block">${serverName}</span>
                 <span class="text-xs text-gray-400 block -mt-1 mb-1">${namespace}</span>
