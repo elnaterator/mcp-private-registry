@@ -184,6 +184,8 @@ export function searchServers(query: string) {
       nextCursor = data.metadata && data.metadata.next_cursor ? data.metadata.next_cursor : undefined;
       allLoaded = !nextCursor || newServers.length === 0;
       renderServersToContainer(container!);
+      const loadingDiv = document.getElementById('server-list-loading');
+      if (loadingDiv) loadingDiv.classList.add('hidden');
       isLoading = false;
     })
     .catch((err) => {
