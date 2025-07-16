@@ -158,4 +158,36 @@ export function setupServerList() {
       });
     }
   });
+}
+
+export function resetServers() {
+  servers = [];
+  nextCursor = undefined;
+  isLoading = false;
+  allLoaded = false;
+}
+
+export function searchServers(query: string) {
+  resetServers();
+  isLoading = true;
+  const container = document.getElementById('server-list');
+  if (container) {
+    container.innerHTML = `<div>Searching servers...</div>`;
+  }
+  let url = `${API_BASE_URL}/search?q=${encodeURIComponent(query)}`;
+  fetch(url)
+    .then(async (res) => {
+      if (!res.ok) throw new Error('Failed to search servers');
+      const data = await res.json();
+      const newServers: McpServer[] = data.servers || [];
+      servers = newServers;
+      nextCursor = data.metadata && data.metadata.next_cursor ? data.metadata.next_cursor : undefined;
+      allLoaded = !nextCursor || newServers.length === 0;
+      renderServersToContainer(container!);
+      isLoading = false;
+    })
+    .catch((err) => {
+      if (container) container.innerHTML = `<div class='text-red-600'>Error: ${err.message}</div>`;
+      isLoading = false;
+    });
 } 

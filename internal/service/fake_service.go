@@ -123,6 +123,33 @@ func (s *fakeRegistryService) Publish(serverDetail *model.ServerDetail) error {
 	return s.db.Publish(ctx, serverDetail)
 }
 
+// Search retrieves MCPRegistry entries matching the query string in name, description, or repository fields
+func (s *fakeRegistryService) Search(query string, cursor string, limit int) ([]model.Server, string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if limit <= 0 {
+		limit = 30
+	}
+
+	filter := map[string]interface{}{}
+	if query != "" {
+		filter["__search"] = query
+	}
+
+	entries, nextCursor, err := s.db.List(ctx, filter, cursor, limit)
+	if err != nil {
+		return nil, "", err
+	}
+
+	result := make([]model.Server, len(entries))
+	for i, entry := range entries {
+		result[i] = *entry
+	}
+
+	return result, nextCursor, nil
+}
+
 // Close closes the in-memory database connection
 func (s *fakeRegistryService) Close() error {
 	return s.db.Close()

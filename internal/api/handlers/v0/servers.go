@@ -132,3 +132,49 @@ func ServersDetailHandler(registry service.RegistryService) http.HandlerFunc {
 		}
 	}
 }
+
+// SearchServersHandler returns a handler for searching registry items
+func SearchServersHandler(registry service.RegistryService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		query := r.URL.Query().Get("q")
+		cursor := r.URL.Query().Get("cursor")
+		limitStr := r.URL.Query().Get("limit")
+		limit := 30
+		if limitStr != "" {
+			if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
+				if parsedLimit > 100 {
+					limit = 100
+				} else {
+					limit = parsedLimit
+				}
+			}
+		}
+
+		servers, nextCursor, err := registry.Search(query, cursor, limit)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		response := PaginatedResponse{
+			Data: servers,
+		}
+		if nextCursor != "" {
+			response.Metadata = Metadata{
+				NextCursor: nextCursor,
+				Count:      len(servers),
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+			return
+		}
+	}
+}

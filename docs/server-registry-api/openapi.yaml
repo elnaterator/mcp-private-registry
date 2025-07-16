@@ -70,6 +70,38 @@ paths:
                   error:
                     type: string
                     example: "Server not found"
+  /search:
+    get:
+      summary: Search MCP servers
+      description: Returns a list of MCP servers matching the search query (partial match on name, description, or repository fields)
+      parameters:
+        - name: q
+          in: query
+          description: Search query string (matches name, description, or repository fields)
+          required: false
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          description: Cursor for pagination
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Number of results per page (max 100)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: A paginated list of MCP servers matching the search query
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerList'
 components:
   schemas:
     Repository:

@@ -101,3 +101,36 @@ func (s *registryServiceImpl) Publish(serverDetail *model.ServerDetail) error {
 
 	return nil
 }
+
+// Search returns registry entries matching the query string in name, description, or repository fields
+func (s *registryServiceImpl) Search(query string, cursor string, limit int) ([]model.Server, string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if limit <= 0 {
+		limit = 30
+	}
+
+	filter := map[string]interface{}{}
+	if query != "" {
+		// For MongoDB, we can use $or with regex for partial/case-insensitive match
+		filter["$or"] = []map[string]interface{}{
+			{"name": map[string]interface{}{"$regex": query, "$options": "i"}},
+			{"description": map[string]interface{}{"$regex": query, "$options": "i"}},
+			{"repository.url": map[string]interface{}{"$regex": query, "$options": "i"}},
+			{"repository.id": map[string]interface{}{"$regex": query, "$options": "i"}},
+		}
+	}
+
+	entries, nextCursor, err := s.db.List(ctx, filter, cursor, limit)
+	if err != nil {
+		return nil, "", err
+	}
+
+	result := make([]model.Server, len(entries))
+	for i, entry := range entries {
+		result[i] = *entry
+	}
+
+	return result, nextCursor, nil
+}

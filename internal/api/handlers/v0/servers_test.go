@@ -262,6 +262,127 @@ func TestServersHandler(t *testing.T) {
 	}
 }
 
+func TestSearchServersHandler(t *testing.T) {
+	testCases := []struct {
+		name            string
+		method          string
+		queryParams     string
+		setupMocks      func(*MockRegistryService)
+		expectedStatus  int
+		expectedServers []model.Server
+		expectedMeta    *v0.Metadata
+		expectedError   string
+	}{
+		{
+			name:        "successful search with query",
+			method:      http.MethodGet,
+			queryParams: "?q=test",
+			setupMocks: func(registry *MockRegistryService) {
+				servers := []model.Server{
+					{
+						ID:            "1",
+						Name:          "test-server-1",
+						Description:   "A test server",
+						Repository:    model.Repository{URL: "https://github.com/example/test-server-1", Source: "github", ID: "repo-1"},
+						VersionDetail: model.VersionDetail{Version: "1.0.0", ReleaseDate: "2025-05-25T00:00:00Z", IsLatest: true},
+					},
+				}
+				registry.Mock.On("Search", "test", "", 30).Return(servers, "", nil)
+			},
+			expectedStatus: http.StatusOK,
+			expectedServers: []model.Server{
+				{
+					ID:            "1",
+					Name:          "test-server-1",
+					Description:   "A test server",
+					Repository:    model.Repository{URL: "https://github.com/example/test-server-1", Source: "github", ID: "repo-1"},
+					VersionDetail: model.VersionDetail{Version: "1.0.0", ReleaseDate: "2025-05-25T00:00:00Z", IsLatest: true},
+				},
+			},
+		},
+		{
+			name:        "pagination with cursor and limit",
+			method:      http.MethodGet,
+			queryParams: "?q=foo&cursor=abc&limit=1",
+			setupMocks: func(registry *MockRegistryService) {
+				servers := []model.Server{
+					{
+						ID:            "2",
+						Name:          "foo-server",
+						Description:   "Foo server",
+						Repository:    model.Repository{URL: "https://github.com/example/foo-server", Source: "github", ID: "repo-2"},
+						VersionDetail: model.VersionDetail{Version: "2.0.0", ReleaseDate: "2025-05-26T00:00:00Z", IsLatest: true},
+					},
+				}
+				registry.Mock.On("Search", "foo", "abc", 1).Return(servers, "next-cursor", nil)
+			},
+			expectedStatus: http.StatusOK,
+			expectedServers: []model.Server{
+				{
+					ID:            "2",
+					Name:          "foo-server",
+					Description:   "Foo server",
+					Repository:    model.Repository{URL: "https://github.com/example/foo-server", Source: "github", ID: "repo-2"},
+					VersionDetail: model.VersionDetail{Version: "2.0.0", ReleaseDate: "2025-05-26T00:00:00Z", IsLatest: true},
+				},
+			},
+			expectedMeta: &v0.Metadata{NextCursor: "next-cursor", Count: 1},
+		},
+		{
+			name:           "method not allowed",
+			method:         http.MethodPost,
+			queryParams:    "?q=test",
+			setupMocks:     func(_ *MockRegistryService) {},
+			expectedStatus: http.StatusMethodNotAllowed,
+			expectedError:  "Method not allowed",
+		},
+		{
+			name:        "internal error",
+			method:      http.MethodGet,
+			queryParams: "?q=fail",
+			setupMocks: func(registry *MockRegistryService) {
+				registry.Mock.On("Search", "fail", "", 30).Return([]model.Server{}, "", errors.New("search failed"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+			expectedError:  "search failed",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockRegistry := new(MockRegistryService)
+			tc.setupMocks(mockRegistry)
+
+			handler := v0.SearchServersHandler(mockRegistry)
+
+			url := "/v0/search" + tc.queryParams
+			req, err := http.NewRequestWithContext(context.Background(), tc.method, url, nil)
+			assert.NoError(t, err)
+
+			rr := httptest.NewRecorder()
+			handler.ServeHTTP(rr, req)
+
+			assert.Equal(t, tc.expectedStatus, rr.Code)
+
+			if tc.expectedStatus == http.StatusOK {
+				assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
+				var resp v0.PaginatedResponse
+				err = json.NewDecoder(rr.Body).Decode(&resp)
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expectedServers, resp.Data)
+				if tc.expectedMeta != nil {
+					assert.Equal(t, tc.expectedMeta.Count, resp.Metadata.Count)
+					assert.Equal(t, tc.expectedMeta.NextCursor, resp.Metadata.NextCursor)
+				}
+			} else if tc.expectedError != "" {
+				assert.Contains(t, rr.Body.String(), tc.expectedError)
+			}
+
+			mockRegistry.Mock.AssertExpectations(t)
+		})
+	}
+}
+
 // TestServersHandlerIntegration tests the servers list handler with actual HTTP requests
 func TestServersHandlerIntegration(t *testing.T) {
 	// Create mock registry service

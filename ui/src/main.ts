@@ -1,5 +1,5 @@
 import './index.css';
-import { renderServerList, setupServerList } from './components/ServerList';
+import { renderServerList, setupServerList, searchServers, resetServers } from './components/ServerList';
 import { SearchBar } from './components/SearchBar';
 import { ServerDetails } from './components/ServerDetails';
 import { PublishForm } from './components/PublishForm';
@@ -13,7 +13,14 @@ const app = document.querySelector<HTMLDivElement>('#app');
 function renderHome() {
   return `
     <section>
-      ${SearchBar()}
+      ${SearchBar((query: string) => {
+        if (query) {
+          searchServers(query);
+        } else {
+          resetServers();
+          renderServerList();
+        }
+      })}
     </section>
     <section>
       <div id='server-list' class='p-4'></div>

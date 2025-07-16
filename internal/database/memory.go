@@ -119,6 +119,16 @@ func (db *MemoryDB) List(
 
 		// Apply filters if any
 		for key, value := range filter {
+			if key == "__search" {
+				q := strings.ToLower(value.(string))
+				if !strings.Contains(strings.ToLower(entry.Name), q) &&
+					!strings.Contains(strings.ToLower(entry.Description), q) &&
+					!strings.Contains(strings.ToLower(entry.Repository.URL), q) &&
+					!strings.Contains(strings.ToLower(entry.Repository.ID), q) {
+					include = false
+				}
+				continue
+			}
 			switch key {
 			case "name":
 				if entry.Name != value.(string) {
